@@ -2,6 +2,7 @@ try:
     import simplejson as json
 except ImportError:
     import json
+from functools import wraps
 
 from werkzeug.routing import Map, Rule
 from werkzeug.wrappers import Request as RequestBase, Response
@@ -13,6 +14,7 @@ from simple_web.base import BaseApp, BaseRequest as SwRequest
 from simple_web.exceptions import SimpleWebException as SWException
 from simple_web.context import context
 from simple_web.logger import logger
+import simple_web.constants as constants
 
 
 MIMETYPE_JSON = 'application/json'
@@ -40,21 +42,32 @@ class SimpleWeb(BaseApp):
 
         self._before_request_hooks = []
         self._before_response_hooks = []
+        self._login_hooks = []
 
-    def add_route(self, uri, handler, endpoint=None, methods=('GET',)):
+    def add_route(
+            self, uri, handler,
+            endpoint=None, methods=('GET',),
+            login_required=False):
         if not endpoint:
             endpoint = uri + '-' + handler.__name__
         self.url_map.add(Rule(uri, endpoint=endpoint, methods=methods))
+        _protect = getattr(handler, constants.LOGIN_REQUIRED, login_required)
+        if _protect:
+            handler = self._protect_resource(handler)
         self.handler_map[endpoint] = handler
 
-    def add_routes(self, uri, handlers={}, endpoint=None):
+    def add_routes(
+            self, uri, handlers={}, endpoint=None, login_required=False):
         keys = handlers.keys()
         if not len(keys):
             return
         for key in keys:
             handler = handlers[key]
             self.add_route(
-                uri, handler, endpoint=endpoint, methods=(key.upper(),))
+                uri, handler, endpoint=endpoint,
+                methods=(key.upper(),),
+                login_required=login_required
+            )
 
     def before_request(self, handler):
         self._before_request_hooks.append(handler)
@@ -62,6 +75,10 @@ class SimpleWeb(BaseApp):
 
     def after_request(self, handler):
         self._before_response_hooks.append(handler)
+        return handler
+
+    def login_handler(self, handler):
+        self._login_hooks.append(handler)
         return handler
 
     def wsgi_app(self, environ, start_response):
@@ -72,6 +89,14 @@ class SimpleWeb(BaseApp):
     def run(self, host='', port=5000, **kwargs):
         logger.info('Running development server on port {}'.format(port))
         run_simple('0.0.0.0', 8081, self, **kwargs)
+
+    def _protect_resource(self, func):
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            for hook in self._login_hooks:
+                hook()
+            return func(*args, **kwargs)
+        return wrapper
 
     def _dispatch_before_req_hooks(self):
         for hook in self._before_request_hooks:

@@ -8,20 +8,20 @@ from simple_web.logger import logger
 
 def set_attribute(name, value):
     def decorator(func):
-        # @wraps(func)
-        # def decorated_func(*args, **kwargs):
-        #     return func(*args, **kwargs)
-        setattr(func, name, value)
-        # return decorated_func
+        @wraps(func)
+        def decorated_func(*args, **kwargs):
+            return func(*args, **kwargs)
+        setattr(decorated_func, name, value)
+        return decorated_func
     return decorator
 
 
 def login_required(func):
     @wraps(func)
     def decorated_func(*args, **kwargs):
-        signature = inspect.signature(func)
-        if '__user_id' not in signature.parameters:
-            kwargs.pop('__user_id')
+        # signature = inspect.signature(func)
+        # if '__user_id' not in signature.parameters:
+            # kwargs.pop('__user_id')
         return func(*args, **kwargs)
     new_func = set_attribute(constants.LOGIN_REQUIRED, True)(decorated_func)
     return new_func

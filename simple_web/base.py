@@ -1,3 +1,6 @@
+from functools import wraps
+
+
 class BaseApp(object):
 
     def add_route(self, uri, handler, endpoint=None, methods=('GET',)):
@@ -12,10 +15,10 @@ class BaseApp(object):
     def after_request(self, handler):
         raise NotImplementedError()
 
-    def route(self, uri, methods=('GET',)):
+    def route(self, uri, methods=('GET',), endpoint=None):
 
         def decorator(func):
-            self.add_route(uri, func, methods)
+            self.add_route(uri, func, methods=methods, endpoint=endpoint)
             return func
 
         return decorator

@@ -1,6 +1,6 @@
-from simple_web.exceptions import NotFound
+from simple_web.exceptions import NotFound, Unauthenticated
 from simple_web.werkzeug import SimpleWeb  # or bottle or falcon
-from simple_web.decorators import profile
+from simple_web.decorators import profile, login_required
 from simple_web.context import context
 
 
@@ -17,8 +17,18 @@ def after(response):
     return response
 
 
-@app.get('/')
-@profile
+@app.login_handler
+def before_request():
+    request = context.request
+    token = request.headers.get('X-Auth-Token', '')
+    if not token:
+        token = request.cookies.get('token', '')
+    if not token:
+        raise Unauthenticated('Please login to access this resource.')
+
+
+# @profile
+@login_required
 def get(*args, **kwargs):
     request = context.request
     return {
@@ -40,7 +50,8 @@ def post(name=''):
     return 'POST'
 
 
-def delete():
+@login_required
+def delete(*args, **kw):
     return 'DELETE'
 
 
@@ -53,11 +64,11 @@ def patch(id):
 
 
 app.add_routes('/<name>', {
-    'GET': get,
-    'POST': post,
-    'PUT': put,
-    'PATCH': patch,
-    'DELETE': delete
+    'get': get,
+    'post': post,
+    'put': put,
+    'patch': patch,
+    'delete': delete
 })
 
 app.add_route('/', get)
