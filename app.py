@@ -1,6 +1,8 @@
+from webargs import fields
+
 from simple_web.exceptions import NotFound, Unauthenticated
 from simple_web.werkzeug import SimpleWeb  # or bottle or falcon
-from simple_web.decorators import profile, login_required
+from simple_web.decorators import profile, login_required, validate
 from simple_web.context import context
 
 
@@ -29,10 +31,14 @@ def before_request():
 
 # @profile
 @login_required
-def get(*args, **kwargs):
+@validate({
+    'name': fields.Integer(required=True, locations=('view_args',)),
+    'num': fields.Integer(required=True, locations=('args',))
+})
+def get(**kwargs):
     request = context.request
     return {
-        'va': args,
+        # 'va': args,
         'vk': kwargs,
         'args': request.args,
         'form': request.form
@@ -63,9 +69,9 @@ def patch(id):
     return 'PATCH {}'.format(id)
 
 
-app.add_routes('/<name>', {
+app.add_routes('/<int:name>', {
     'get': get,
-    'post': post,
+    'post': get,
     'put': put,
     'patch': patch,
     'delete': delete

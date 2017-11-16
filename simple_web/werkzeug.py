@@ -4,14 +4,20 @@ except ImportError:
     import json
 from functools import wraps
 
+from werkzeug.utils import cached_property
 from werkzeug.routing import Map, Rule
 from werkzeug.wrappers import Request as RequestBase, Response
 from werkzeug.exceptions import HTTPException
 from werkzeug.contrib.wrappers import JSONRequestMixin
 from werkzeug.serving import run_simple
 
+from webargs import core, ValidationError
+
 from simple_web.base import BaseApp, BaseRequest as SwRequest
-from simple_web.exceptions import SimpleWebException as SWException
+from simple_web.exceptions import (
+    SimpleWebException as SWException,
+    InvalidData
+)
 from simple_web.context import context
 from simple_web.logger import logger
 import simple_web.constants as constants
@@ -26,8 +32,64 @@ def dispatch_options_handler(adapter):
     return response
 
 
+def validation_handler(error):
+    """
+    To be passed to flaskParser to throw custom error
+    """
+    raise InvalidData(error)
+
+
 class Request(SwRequest, RequestBase, JSONRequestMixin):
-    pass
+
+    @cached_property
+    def json(self):
+        if self.headers.get('content-type') == 'application/json':
+            return json.loads(self.data)
+
+
+class WerkzeugParser(core.Parser):
+
+    __location_map__ = dict(
+        view_args='parse_view_args',
+        **core.Parser.__location_map__
+    )
+
+    def __init__(self, view_args={}, **kw):
+        super().__init__(**kw)
+        self.view_args = view_args
+
+    def parse_view_args(self, req, name, field):
+        """Pull a value from the request's ``view_args``."""
+        print(name, field)
+        return core.get_value(self.view_args, name, field)
+
+    def parse_json(self, req, name, field):
+        json_data = req.json
+        if json_data is None:
+            return wcore.missing
+        return core.get_value(json_data, name, field, allow_many_nested=True)
+
+    def parse_querystring(self, req, name, field):
+        """Pull a querystring value from the request."""
+        return core.get_value(req.args, name, field)
+
+    def parse_headers(self, req, name, field):
+        """Pull a value from the header data."""
+        return core.get_value(req.headers, name, field)
+
+    def parse_cookies(self, req, name, field):
+        """Pull a value from the cookiejar."""
+        return core.get_value(req.cookies, name, field)
+
+    def parse_files(self, req, name, field):
+        """Pull a file from the request."""
+        return core.get_value(req.files, name, field)
+
+    def handle_error(self, error):
+        """Handles errors during parsing. Aborts the current HTTP request and
+        responds with a 422 error.
+        """
+        return error
 
 
 class SimpleWeb(BaseApp):
@@ -54,6 +116,9 @@ class SimpleWeb(BaseApp):
         _protect = getattr(handler, constants.LOGIN_REQUIRED, login_required)
         if _protect:
             handler = self._protect_resource(handler)
+        _validate = getattr(handler, constants.VALIDATOR, False)
+        if _validate:
+            handler = self._validate_resource(handler)
         self.handler_map[endpoint] = handler
 
     def add_routes(
@@ -96,6 +161,19 @@ class SimpleWeb(BaseApp):
             for hook in self._login_hooks:
                 hook()
             return func(*args, **kwargs)
+        return wrapper
+
+    def _validate_resource(self, func):
+        @wraps(func)
+        def wrapper(**kwargs):
+            validator = getattr(func, constants.VALIDATOR)
+            parser = WerkzeugParser(kwargs, error_handler=validation_handler)
+            try:
+                data = parser.parse(validator, context.request)
+            except ValidationError as e:
+                raise InvalidData(error)
+            else:
+                return func(**data)
         return wrapper
 
     def _dispatch_before_req_hooks(self):
