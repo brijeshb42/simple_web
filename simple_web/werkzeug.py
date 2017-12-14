@@ -66,7 +66,7 @@ class WerkzeugParser(core.Parser):
     def parse_json(self, req, name, field):
         json_data = req.json
         if json_data is None:
-            return wcore.missing
+            return core.missing
         return core.get_value(json_data, name, field, allow_many_nested=True)
 
     def parse_querystring(self, req, name, field):
@@ -219,8 +219,9 @@ class SimpleWeb(BaseApp):
     def _dispatch_request(self, request):
         adapter = self.url_map.bind_to_environ(request)
         if request.method == 'OPTIONS':
-            return dispatch_options_handler(adapter)
-        context.request = request
-        self._dispatch_before_req_hooks()
-        response = self._dispatch(adapter)
+            response = dispatch_options_handler(adapter)
+        else:
+            context.request = request
+            self._dispatch_before_req_hooks()
+            response = self._dispatch(adapter)
         return self._dispatch_before_resp_hooks(response)

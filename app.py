@@ -79,5 +79,21 @@ app.add_routes('/<int:name>', {
 
 app.add_route('/', get)
 
+
+@app.route('/e', methods=['POST'])
+def event():
+    req = context.request
+    print(req.form)
+    print(req.json)
+    return 'ok'
+
+
+@app.after_request
+def af(resp):
+    resp.headers.set('Access-Control-Allow-Origin', '*')
+    resp.headers.set('Access-Control-Allow-Headers', 'X-Requested-With')
+    return resp
+
+
 if __name__ == '__main__':
     app.run('0.0.0.0', 8081, use_reloader=True, use_debugger=True)
