@@ -25,6 +25,6 @@ app.run()
 
 ### TODO
 
-[ ] Pass url params, query string and form data directly to functions
-[ ] Add way to validate incoming data
-[ ] Add support for login/auth
+* [ ] Pass url params, query string and form data directly to functions
+* [ ] Add way to validate incoming data
+* [ ] Add support for login/auth
