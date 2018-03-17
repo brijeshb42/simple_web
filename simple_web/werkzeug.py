@@ -113,12 +113,12 @@ class SimpleWeb(BaseApp):
         if not endpoint:
             endpoint = uri + '-' + handler.__name__
         self.url_map.add(Rule(uri, endpoint=endpoint, methods=methods))
-        _protect = getattr(handler, constants.LOGIN_REQUIRED, login_required)
-        if _protect:
-            handler = self._protect_resource(handler)
         _validate = getattr(handler, constants.VALIDATOR, False)
         if _validate:
             handler = self._validate_resource(handler)
+        _protect = getattr(handler, constants.LOGIN_REQUIRED, login_required)
+        if _protect:
+            handler = self._protect_resource(handler)
         self.handler_map[endpoint] = handler
 
     def add_routes(
@@ -151,9 +151,9 @@ class SimpleWeb(BaseApp):
         response = self._dispatch_request(request)
         return response(environ, start_response)
 
-    def run(self, host='', port=5000, **kwargs):
+    def run(self, host='0.0.0.0', port=5000, **kwargs):
         logger.info('Running development server on port {}'.format(port))
-        run_simple('0.0.0.0', 8081, self, **kwargs)
+        run_simple(host, port, self, **kwargs)
 
     def _protect_resource(self, func):
         @wraps(func)

@@ -1,6 +1,3 @@
-from functools import wraps
-
-
 class BaseApp(object):
 
     def add_route(self, uri, handler, endpoint=None, methods=('GET',)):

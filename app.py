@@ -29,10 +29,11 @@ def before_request():
         raise Unauthenticated('Please login to access this resource.')
 
 
-# @profile
+@profile
+@app.get('/')
 @login_required
 @validate({
-    'name': fields.Integer(required=True, locations=('view_args',)),
+    'name': fields.String(required=True, locations=('args',)),
     'num': fields.Integer(required=True, locations=('args',))
 })
 def get(**kwargs):
@@ -77,9 +78,6 @@ app.add_routes('/<int:name>', {
     'delete': delete
 })
 
-app.add_route('/', get)
-
-
 @app.route('/e', methods=['POST'])
 def event():
     req = context.request
@@ -96,4 +94,4 @@ def af(resp):
 
 
 if __name__ == '__main__':
-    app.run('0.0.0.0', 8081, use_reloader=True, use_debugger=True)
+    app.run(use_reloader=True, use_debugger=True)
